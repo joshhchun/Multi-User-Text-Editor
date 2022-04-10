@@ -3,7 +3,7 @@
 import sys
 import socket
 
-if __name__ == "__main__":
+def main():
     host = '127.0.0.1'              # Make default host localhost
     port = 8000                     # Random port (non privileged ports are > 1023)
     
@@ -21,6 +21,9 @@ if __name__ == "__main__":
             client.sendall(response)                      # Keeps sending data until all has been sent
     
     serverSocket.close()
+
+if __name__ == "__main__":
+    main()
         
         
         
