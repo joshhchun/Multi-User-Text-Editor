@@ -9,6 +9,7 @@ import pickle
 # Globals
 nextClientId = 2
 lamportClock = 0.0
+PREFIX_LENGTH = 8
 
 def openfile(args) -> list[list]:
     try:
@@ -48,13 +49,13 @@ def broadcastBytes(data) -> None:
     for fileno, socketObject in networkMap.items():
         if fileno != serverSocket.fileno():
             socketObject.send(data)
-            
-def loadFile(clientSocket, textData) -> None:
-    data_bytes = pickle.dumps(textData)
-    try:
-        clientSocket.sendall(data_bytes)
-    except InterruptedError as e:
-        print(str(e))
+        
+def sendFileToClient(clientSocket, textData) -> None:
+    body = pickle.dumps(textData)
+    prefix = f"{len(body)}".zfill(PREFIX_LENGTH).encode("utf-8")
+    if len(prefix) > PREFIX_LENGTH:
+        raise ValueError("prefix too long")
+    clientSocket.sendall(prefix + body)
     
     
     
@@ -63,7 +64,7 @@ def newConnectionHook(clientSocket, address, textData) -> None:
     # is a pair: the character itself, and the user who added it.
     # Generate a unique identifier for this client; we will tell them that this is their ID.
     clientId = getNextClientId()
-    loadFile(clientSocket, textData)
+    sendFileToClient(clientSocket, textData)
 
 def connectionLostHook(clientSocket, address) -> None:
     # TODO: Maybe broadcast to clients that this client disconnected?
@@ -103,12 +104,10 @@ def main() -> None:
                 clientSocket, address = serverSocket.accept()
                 newConnectionHook(clientSocket, address, buffer)
                 networkMap[clientSocket.fileno()] = (clientSocket, address)
-
             # If we have activity on any other socket, someone is sending us information.
             else:
                 clientSocket, address = networkMap[file]
                 data = clientSocket.recv(1024)
-
                 if not data:
                     # This socket sent nothing, which means it disconnected!
                     connectionLostHook(clientSocket, address)

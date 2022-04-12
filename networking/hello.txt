@@ -1,3 +1,121 @@
-hi my name is joshua
-and this is working
-correctly!
+Section 1 - Cerebration Sessions - Brainstorming and Initial Design
+
+Identifying Unmet Needs:
+Our tentative project idea was to build a real-time interactive text-editor that would allow the users to code together remotely on the student machines. 
+Through the ideation process there were several unmet needs that were discovered. 
+One such need was the need to be able to collaboratively code without being in the physical presence of each other. 
+With the growing presence of the cloud, the need for collaborative file sharing is at an all time high. Although software development is often highly collaborative, there does not exist a plethora of free programs that allow users to code together synchronously easily. A very popular alternative non real-time code management system is git, and that brings us to another unmet need. 
+When trying to synchronously work on code together, users must constantly push and pull to github to get the latest updates. Sometimes these updates may not be able to merge with each other if the work is being done in real time. 
+
+Thought Questions:
+How would one implement constant text synchronization between all users?
+How easy would it be for the user to configure and set up this system?
+Would it be possible with the student machines permissions/configuration?
+How would the networking aspect look/what protocol?
+Will the networking aspect be too challenging to implement in the timeframe?
+
+Resource Availability and Restrictions:
+Student machines are available to us but a restriction is the permissions/configuration
+We don’t have a clear way to solve the networking aspect of the project. We’ve done related things in systems programming but nothing that is this extensive/involved.
+We believe that creating some form of a multi-user text editor will be possible before the deadline. Through our research so far it seems like the hardest part of the project will be implementing the conflict-free data type. This may impact our ability to prevent conflicts between the multiple copies of the file that is being edited when the file is synched. 
+
+Identifying Risks and Alternatives:
+Risks:
+Errors with merging files in case there are edits that aren’t stored on the network in case of network failure/bad internet.
+Inability to do this project due to the permissions of the student machines
+Trouble implementing the conflict free data type due to complexity.
+
+
+Alternatives:
+Only allow merging when connected to the internet. Essentially, constantly check connection status.
+Configure our own linux system for development.
+
+
+
+Discussion and Debate:
+Our group debated many different ideas, but we all agreed on one thing—we wanted to do a project that would respond to real world needs. With the growing need for remote collaboration, we ultimately decided on a real-time multi-user text editor. Although everyone liked the idea, there were some concerns on the actual implementation. 
+We haven’t done anything like this in class so some of the team members are worried about not being able to contribute evenly. Since none of us have done something like this, however, it will be a learning experience for all of us. Furthermore, we will try to do all of the coding and discussion together, so that everyone can evenly contribute their thoughts and ideas.
+Delving deeper into the idea, we discovered that this project will heavily involve distributed data systems, which no one is too familiar with. We also found out that we will need to implement a conflict-free replicated data type, which we are not familiar with as well. Although this does bring up concerns, we are all excited to learn and research topics to develop our project. 
+There were also concerns on the networking aspect of this project as it will be challenging and cause delays. We are not exactly sure if it would be possible to connect students on the student machines, as there are firewalls and permission issues. 
+Another big topic of debate was what programming language to use. While a high-level object oriented programming language like Python offers accessibility and useful libraries, a statically typed language will improve efficiency which is vital for trying to update the text editor real time.
+
+Opportunities for Proofs of Concept:
+Our final goal is to create a real-time multi-user text editor. To ensure we reach this goal, some subproblems we have to meet first is 1) implement text synchronization between users, and 2) ensure efficient string manipulation and storage. Of course these are not trivial tasks themselves, so we wanted to make sure we could tackle the most essential parts of the problem. To ensure synchronization, one must ensure character operations are commutative and idempotent. We can achieve this by implementing a conflict-free replicated data type (CRDT), and making every character globally ordered and unique.
+To ensure efficient large string manipulation, we will try to implement a rope data structure. A rope stores the substrings at the leaf nodes, and holds the number of characters to the left of the node in every other node. If balanced this ensures O(logn) character indexing, by binary search, which is vital to keep synchronization between users. A rope also offers O(1) concatenation, by just adding a new root, which is essential to update the text file for all users.
+
+
+Section 2 - Key Terms and Definitions
+
+Text Editor: A file that allows character insertion, update, and deletion operations, and keeps track of each character’s position index position.
+Rope-Tree: A type of binary tree where the substrings are stored at the leaf nodes. Every other node contains the number of characters present to the left of that node. This structure allows character indexing in O(logn) time and for the concatenation of the substrings into larger strings in O(1) time. 
+Interactivity: Allows multiple users to edit the same file simultaneously from different points on the network.
+Multi User Application: An application that allows for interaction between many 
+different users.
+Network: Will allow the different edits and by different users to sync with each other. 
+CRDT: A conflict-free replicated data type is a data structure that allows for multiple copies to be held on multiple points throughout a network. Each copy can be updated and edited independently and it is always mathematically possible to resolve any inconsistencies between different copies.
+Distributed Data Storage System: A data storage system where information is saved on more than one node, with information often being replicated. 
+
+
+Section 3 - Project Introduction Statement
+
+	The objective of this project is to build a real-time multi-user text editor. This editor will allow users to collaboratively edit copies of the same final with each copy being automatically merged. This continuous syncing process will allow for the appearance of all users editing the same file at the same time albeit from different locations. As the demand for greater flexibility, working from home, and agile collaborative workspaces grow, this project is aimed to help deliver real world needs. The project will use conflict free replicated data types to merge different copies of the same file as well as rope-trees to allow for the fast and efficient concatenation of strings in the files. The project will also use basic networking principles and protocols to continuously update each individual copy of the files to maintain the real-time synchronous nature. 
+
+Section 4 - Design Considerations
+
+
+Assumptions
+First, it is assumed that sharing data between two computers on the student machines is possible through socket connections. 
+Second, there will be little to no latency between the users as they are on the same localhost.
+Third, The CRDT will be able to solve any inconsistencies between the users’ files.
+Fourth, the rope data structure will always be balanced to ensure efficient string manipulation (insertion and deletion).
+Project Requirements
+First, users will be able to connect with each other remotely to share data (1.0). In order for this to work, one user (the host) must open a socket, effectively starting a server, and bind it to a port on the localhost of the student machine (1.1). The other users then must also open up a socket and connect to the port the host binded to, effectively creating a data connection (1.2).
+Second, the host will send an individual copy of the file to every user connected to the port (2.0). The users then will all be able to write to the file and the changes will be sent to everyone on the server (2.1)
+Third, a program will be able to read in these changes and keep synchronization between all users (3.0). In order for this to be ensured, a CRDT will make sure every character is globally unique and ordered and insert the remote changes (3.1).
+Fourth, in order to make sure the program is efficient,a rope data structure will hold the whole text file in a tree structure ensuring easy character indexing and concatenation (3.2)
+Specifications
+The program requires 2 things:
+A host opening a socket (server) on a localhost port.
+Users opening a socket and connecting to that port.
+Once the users are connected, the program will:
+Send a local copy of the file to every user.
+Constantly read in and write remote changes.
+Initial Risks and Alternatives
+Risks:
+Networking problem with the student machines (firewalls, permission, etc.)
+Rope data structure taking too much memory being stored in a tree
+
+
+Alternatives:
+Setting up a website for a server to avoid student machine firewalls and permissions.
+Storing the data in an array or 2D array to save memory (no pointers or character length information stored in nodes).
+Artifacts:
+Josh: 
+Linear Algebra/Differential Equations Exam: 04/14/22
+Dorm Formal: 04/08/22
+Dorm Sport Tournament: 04/09/22
+Logic design final project due the week before finals week. Although this should not impede too much on my time for this project, it is something to consider.
+		
+		These artifacts may impact the abi
+Jack:
+Linear exam on thursday April 14th. Need to spend multiple days studying for this as it is the grade that requires the most improvement.
+10 page philosophy paper due the week before finals week. This will just decrease the overall time allotted to the data structures project. Won’t impact ability at any one point.
+Logic design final project due the week before finals week. Similar to philosophy paper in that it is evenly spread out so it won’t impact progress at any one time.
+May have potential interviews for investment banking internships. These aren’t scheduled yet but come up on fairly short notice so I have to be ready to drop everything else and take a day to prepare and study for interviews.
+Welsh Family hall formal: 04/08/22
+Noah: 
+April 14th: Linear exam: Substantially behind in that class but shouldn't take away at all from contributions. 
+Logic Design Final Project: As this is similar in nature to the data structures exam will gradually require attention over the same period of time as this project. Therefore, will need to balance my time wisely so as not to favor one. 
+Squilly: 
+Philosophy research paper due the week before finals
+Discrete Math Problem Sets due 4/15, 4/22, 4/29
+Macroeconomics project due 4/14
+Dorm formal 4/8
+Dorm event 4/9
+Touring a prospective student from my high school around campus 4/8 - 4/9
+
+
+
+
+
+
