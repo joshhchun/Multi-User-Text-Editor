@@ -26,9 +26,6 @@ class Buffer:
         self.insert(cursor, " ")
 
     def wfile(self, fname):
-        for line in self.lines:
-            if line[-1] != '\n':
-                line += "Hello World"
         with open(fname, 'w') as f:
             for line in self.lines:
                 f.write(line)
