@@ -1,23 +1,79 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 from argparse import ArgumentParser
 from select import select
 import socket
 import json
 import sys
 import pickle
+from py3crdt.sequence import Sequence
+import uuid
+from dataclasses import dataclass
+from random import uniform
 
 # Globals
 nextClientId = 2
 lamportClock = 0.0
 PREFIX_LENGTH = 8
 
-def openfile(args) -> list[list]:
+# Class for the buffer holding the text
+@dataclass
+class Buffer():
+    text: Sequence() = Sequence(uuid.uuid4())
+    
+    @property
+    def length(self):
+        return len(self.text.id_seq)
+    
+    @property
+    def positions(self):
+        return self.text.id_seq
+
+    @property
+    def removed_list(self):
+        return self.text.id_remv_list
+    
+    # Method to insert a character at an index
+    def insert(self, letter, index):
+        # If user wants to edit the existing text (vs appending)
+        if index < self.length:
+            if index == 0:
+                # If user wants to add character to beginning of text, give it an ID of prev first char / 2
+                index = self.positions[0] / 2
+            else:
+                # If user wants to add a character in between 2 chars, give it an ID in between the 2 chars
+                index = (self.positions[index - 1] + self.positions[index]) / 2
+            self.text.add(letter, index)
+        # If user wants to append to file
+        else:
+            # Assign first character in the text 0.5. If an ID of 0.5 has already been taken, then increment the ID by a little bit
+            if index == 0:
+                index = 0.5 + uniform(0.05, 0.1) if index in self.removed_list else 0.5
+            else:
+                index = index + uniform(0.05, 0.3) if index in self.removed_list else index
+            self.text.add(letter, index)
+            
+    # Method to remove a character by index
+    def remove(self, index):
+        if index <= self.length and index - 1 >= 0:
+            id = self.text.id_seq[index - 1]
+            self.text.remove(id)
+        else:
+            pass
+
+# Function to open the file
+def openfile(args) -> Buffer():
+    index = 0.5
     try:
-         buffer = [*open(args.fpath).readlines()]
+        buffer = Buffer()
+        for line in open(args.fpath).readlines():
+            for letter in line:
+                buffer.insert(letter, index)
+                index += 1
+        return buffer
     except FileNotFoundError as e:
         print(str(e))
         sys.exit(1)
-    return buffer
 
 def parser() -> ArgumentParser:
     result = ArgumentParser()
@@ -50,21 +106,18 @@ def broadcastBytes(data) -> None:
         if fileno != serverSocket.fileno():
             socketObject.send(data)
         
-def sendFileToClient(clientSocket, textData) -> None:
-    body = pickle.dumps(textData)
-    prefix = f"{len(body)}".zfill(PREFIX_LENGTH).encode("utf-8")
+# Function to send the existing file contents in Sequence to client
+def sendFileToClient(clientSocket, textData, fileName) -> None:
+    merge_list = pickle.dumps({"file_name": fileName, "elem_list": textData.elem_list, "id_remv_list": textData.id_remv_list})
+    prefix = f"{len(merge_list)}".zfill(PREFIX_LENGTH).encode("utf-8")
     if len(prefix) > PREFIX_LENGTH:
         raise ValueError("prefix too long")
-    clientSocket.sendall(prefix + body)
+    clientSocket.sendall(prefix + merge_list)
     
     
     
-def newConnectionHook(clientSocket, address, textData) -> None:
-    # Note: You need a unique identifier for each client. Each character in the buffer / file
-    # is a pair: the character itself, and the user who added it.
-    # Generate a unique identifier for this client; we will tell them that this is their ID.
-    clientId = getNextClientId()
-    sendFileToClient(clientSocket, textData)
+def newConnectionHook(clientSocket, address, textData, fileName) -> None:
+    sendFileToClient(clientSocket, textData, fileName)
 
 def connectionLostHook(clientSocket, address) -> None:
     # TODO: Maybe broadcast to clients that this client disconnected?
@@ -102,7 +155,7 @@ def main() -> None:
             # If we have activity on serverSocket, someone is trying to connect.
             if file == serverSocket.fileno():
                 clientSocket, address = serverSocket.accept()
-                newConnectionHook(clientSocket, address, buffer)
+                newConnectionHook(clientSocket, address, buffer.text, args.fpath)
                 networkMap[clientSocket.fileno()] = (clientSocket, address)
             # If we have activity on any other socket, someone is sending us information.
             else:
