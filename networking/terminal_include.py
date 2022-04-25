@@ -24,6 +24,13 @@ class Buffer:
         self.lines.insert(cursor.row + 1, current[cursor.col:])
         # Need a space here in case users insert multiple newlines
         self.insert(cursor, " ")
+
+    def wfile(self, fname):
+        with open(fname, 'w') as f:
+            for line in self.lines:
+                f.write(line)
+
+                
         
 # Class for the cursor
 class Cursor:
@@ -99,7 +106,8 @@ def renderEditor(buffer, screen, window, cursor) -> None:
         screen.addstr(row, 0, line[window.col:window.n_cols + window.col])
     screen.move(*window.moveCursor(cursor))
     screen.refresh()
-    
+   
+ 
 # Input the self-made change.                                                                           
 def handleKey(screen, buffer, window, cursor, key) -> bool:
     if key == "KEY_UP":
@@ -126,3 +134,7 @@ def handleKey(screen, buffer, window, cursor, key) -> bool:
         buffer.insert(cursor, key)
         right(window, buffer, cursor)
         return True
+    elif key == "KEY_SLEFT":
+        buffer.wfile("hello.txt")
+        return True
+	
