@@ -53,12 +53,18 @@ def readAllFromSocket(serverSocket, length) -> bytearray:
     return buffer
 
 # Loading the file in from the server
-def loadInFile(serverSocket) -> None:
+def loadInFile(serverSocket):
     # Getting the prefix length to ensure we recieve what we want 
     prefix = int(readAllFromSocket(serverSocket, PREFIX_LENGTH))
     # Reading prefix # of bytes from the socket
-    body = readAllFromSocket(serverSocket, prefix)
-    return pickle.loads(body)
+    body = pickle.loads(readAllFromSocket(serverSocket, prefix))
+    buffer = CRDT()
+    # Merge existing sequence into new client-side one
+    file_name = body['file_name']
+    buffer.text.merge(body['elem_list'], 'elem')
+    buffer.text.merge(body['id_remv_list'], 'id_remv_list')
+    return (file_name, buffer)
+
     
 
 def main(screen):
@@ -67,7 +73,7 @@ def main(screen):
     # Creating the client socket that is connected to the server
     clientSocket = createClientSocket(args.port)
     # Loading in the current text file
-    buffer = Buffer(loadInFile(clientSocket))
+    file_name, buffer = loadInFile(clientSocket)
     # Creating a window & cursor object for the terminal
     window = Window(curses.LINES - 1, curses.COLS - 1)
     cursor = Cursor()
@@ -84,7 +90,7 @@ def main(screen):
             if file == 0: # stdin
                 # This means I am typing. I need to send someone.
                 key = screen.getkey()
-                handleKey(screen, buffer, window , cursor, key)
+                handleKey(screen, buffer, window , cursor, key, file_name)
                 #sendOverNetwork(makeCrdt(key))
             else:
                 # This means I got something from someone else.
