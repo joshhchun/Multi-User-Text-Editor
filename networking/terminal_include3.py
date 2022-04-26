@@ -25,14 +25,6 @@ class Buffer:
         # Need a space here in case users insert multiple newlines
         self.insert(cursor, " ")
 
-def save_file(file_name, buffer):
-    with open(file_name, 'w') as f:
-        for line in buffer.text.get_seq():
-            f.write(line)
-    def wfile(self, fname):
-        with open(fname, 'w') as f:
-            for line in self.lines:
-                f.write(line)
                 
 # Class for the buffer holding the text
 @dataclass
@@ -78,6 +70,11 @@ class CRDT():
             self.text.remove(id)
         else:
             pass
+
+    def save_file(self, file_name):
+        with open(file_name, 'w') as f:
+            for line in self.text.get_seq():
+                f.write(line)
                 
         
 # Class for the cursor
@@ -189,6 +186,6 @@ def handleKey(screen, buffer, window, cursor, key, file_name) -> bool:
         buffer.insert(key, cursor.col)
         return True
     elif key == "KEY_SLEFT":
-        buffer.wfile(file_name)
+        buffer.save_file(file_name)
         return True
 	
