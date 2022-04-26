@@ -82,11 +82,11 @@ def parser() -> ArgumentParser:
     return result
 
 
-def createServerSocket(port) -> socket.socket:
-    socketObject = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-    socketObject.bind(("localhost", port))
-    socketObject.listen(20)
-    return socketObject
+def create_server_socket(port) -> socket.socket:
+    socket_object = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+    socket_object.bind(("localhost", port))
+    socket_object.listen(20)
+    return socket_object
 
 def incrementLamportClock() -> None:
     global lamportClock
@@ -97,76 +97,70 @@ def getNextClientId() -> int:
     nextClientId += 1
     return nextClientId
 
-def broadcastBytes(data) -> None:
+def broadcastBytes(data, server_socket, client_socket, address, networkMap) -> None:
     """
-    :param data:    Data to send to each client (except server).
+    :param data:    Data to send to each client (except server and client themselves).
     :type data:     bytes
     """
-    for fileno, socketObject in networkMap.items():
-        if fileno != serverSocket.fileno():
-            socketObject.send(data)
+    print("\n\n")
+    print(networkMap.keys())
+    print(client_socket.fileno())
+    print(server_socket.fileno())
+    print("\n\n")
+    
+    for fileno, socket_object in networkMap.items():
+        if fileno != server_socket.fileno() and fileno != client_socket.fileno():
+            socket_object[0].send(data)
         
 # Function to send the existing file contents in Sequence to client
-def sendFileToClient(clientSocket, textData, fileName) -> None:
+def sendFileToClient(client_socket, textData, fileName) -> None:
     merge_list = pickle.dumps({"file_name": fileName, "elem_list": textData.elem_list, "id_remv_list": textData.id_remv_list})
     prefix = f"{len(merge_list)}".zfill(PREFIX_LENGTH).encode("utf-8")
     if len(prefix) > PREFIX_LENGTH:
         raise ValueError("prefix too long")
-    clientSocket.sendall(prefix + merge_list)
+    client_socket.sendall(prefix + merge_list)
     
     
-    
-def newConnectionHook(clientSocket, address, textData, fileName) -> None:
-    sendFileToClient(clientSocket, textData, fileName)
+# Function for whenever a new client connects to server
+def newConnectionHook(client_socket, address, textData, fileName) -> None:
+    sendFileToClient(client_socket, textData, fileName)
 
-def connectionLostHook(clientSocket, address) -> None:
-    # TODO: Maybe broadcast to clients that this client disconnected?
-    ...
     
-def handleData(clientSocket, address, data) -> None:
-    jsonObject = json.loads(data.read().decode("utf-8"))
+def handleData(client_socket, buffer, address, data) -> None:
+    # ('insert', char, index) or ('delete', 0, index)
+    op, char, index = pickle.loads(data)
+    if op == 'insert':
+        buffer.insert(char, index)
+    else:
+        buffer.remove(index)
 
-    """
-        jsonObject might look like {
-            type: "add",
-            position: [
-                [index 0, "josh"], # Identifier 1
-            ],
-            lamport: 0,
-            value: "b"
-        }
-    """
-
-    # 1. Decode JSON-object from bytes.
-    # 2. Set 
-           
 
 def main() -> None:
     args = parser().parse_args()
     buffer = openfile(args)
     lamportClock = 0
     nextClientId = 0
-    serverSocket = createServerSocket(args.port)
+    server_socket = create_server_socket(args.port)
     networkMap = {
-        serverSocket.fileno(): serverSocket,
+        server_socket.fileno(): server_socket,
     }
     while True:
-        for file in select([*networkMap.keys()], [], [])[0]:
-            # If we have activity on serverSocket, someone is trying to connect.
-            if file == serverSocket.fileno():
-                clientSocket, address = serverSocket.accept()
-                newConnectionHook(clientSocket, address, buffer.text, args.fpath)
-                networkMap[clientSocket.fileno()] = (clientSocket, address)
+        for fileno in select([*networkMap.keys()], [], [])[0]:
+            # If we have activity on server socket, someone is trying to connect.
+            if fileno == server_socket.fileno():
+                client_socket, address = server_socket.accept()
+                newConnectionHook(client_socket, address, buffer.text, args.fpath)
+                networkMap[client_socket.fileno()] = (client_socket, address)
             # If we have activity on any other socket, someone is sending us information.
             else:
-                clientSocket, address = networkMap[file]
-                data = clientSocket.recv(1024)
+                client_socket, address = networkMap[fileno]
+                data = client_socket.recv(1024)
                 if not data:
                     # This socket sent nothing, which means it disconnected!
-                    connectionLostHook(clientSocket, address)
-                    networkMap.pop(file)
+                    networkMap.pop(fileno)
                 else:
-                    handleData(clientSocket, address, data)
+                    handleData(client_socket, buffer, address, data)
+                    broadcastBytes(data, server_socket, client_socket, address, networkMap)
 
 
 if __name__ == "__main__":
