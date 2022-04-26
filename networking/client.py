@@ -5,7 +5,7 @@ import socket
 import curses
 import sys
 import pickle
-from terminal_include import *
+from terminal_include3 import *
 
 PREFIX_LENGTH = 8
 DELETE = ("KEY_DELETE", "\x04", "\x7f")
@@ -42,8 +42,9 @@ def create_client_socket(port) -> socket.socket:
     return client_socket
 
 # TODO: Handle recieving a CRDT and implementing it into the text data structure
-def commitCrdtToEditor(file, buffer) -> None:
-    op, char, index = pickle.loads(file.recv(1024))
+def commitCrdtToEditor(buffer, client_socket) -> None:
+    data = client_socket.recv(1024)
+    op, char, index = pickle.loads(data)
     if op == 'insert':
         buffer.insert(char, index)
     else:
@@ -96,10 +97,10 @@ def main(screen):
                 key = screen.getkey()
                 # If user wants to insert
                 if handleKey(screen, buffer, window , cursor, key, file_name):
-                    sendOverNetwork(client_socket, makeCrdt(key))
+                    sendOverNetwork(client_socket, makeCrdt(key, cursor.col))
             else:
                 # This means I got something from someone else.
-                commitCrdtToEditor(file, buffer)
+                commitCrdtToEditor(buffer, client_socket)
 
 
 

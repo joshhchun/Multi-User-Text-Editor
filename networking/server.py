@@ -83,10 +83,10 @@ def parser() -> ArgumentParser:
 
 
 def create_server_socket(port) -> socket.socket:
-    socketObject = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-    socketObject.bind(("localhost", port))
-    socketObject.listen(20)
-    return socketObject
+    socket_object = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+    socket_object.bind(("localhost", port))
+    socket_object.listen(20)
+    return socket_object
 
 def incrementLamportClock() -> None:
     global lamportClock
@@ -102,9 +102,15 @@ def broadcastBytes(data, server_socket, client_socket, address, networkMap) -> N
     :param data:    Data to send to each client (except server and client themselves).
     :type data:     bytes
     """
-    for fileno, socketObject in networkMap.items():
-        if fileno is not server_socket.fileno() or fileno is not client_socket.fileno():
-            socketObject.send(data)
+    print("\n\n")
+    print(networkMap.keys())
+    print(client_socket.fileno())
+    print(server_socket.fileno())
+    print("\n\n")
+    
+    for fileno, socket_object in networkMap.items():
+        if fileno != server_socket.fileno() and fileno != client_socket.fileno():
+            socket_object[0].send(data)
         
 # Function to send the existing file contents in Sequence to client
 def sendFileToClient(client_socket, textData, fileName) -> None:
@@ -122,7 +128,7 @@ def newConnectionHook(client_socket, address, textData, fileName) -> None:
     
 def handleData(client_socket, buffer, address, data) -> None:
     # ('insert', char, index) or ('delete', 0, index)
-    op, char, index = data
+    op, char, index = pickle.loads(data)
     if op == 'insert':
         buffer.insert(char, index)
     else:
@@ -139,19 +145,19 @@ def main() -> None:
         server_socket.fileno(): server_socket,
     }
     while True:
-        for file in select([*networkMap.keys()], [], [])[0]:
+        for fileno in select([*networkMap.keys()], [], [])[0]:
             # If we have activity on server socket, someone is trying to connect.
-            if file == server_socket.fileno():
+            if fileno == server_socket.fileno():
                 client_socket, address = server_socket.accept()
                 newConnectionHook(client_socket, address, buffer.text, args.fpath)
                 networkMap[client_socket.fileno()] = (client_socket, address)
             # If we have activity on any other socket, someone is sending us information.
             else:
-                client_socket, address = networkMap[file]
-                data = pickle.loads(client_socket.recv(1024))
+                client_socket, address = networkMap[fileno]
+                data = client_socket.recv(1024)
                 if not data:
                     # This socket sent nothing, which means it disconnected!
-                    networkMap.pop(file)
+                    networkMap.pop(fileno)
                 else:
                     handleData(client_socket, buffer, address, data)
                     broadcastBytes(data, server_socket, client_socket, address, networkMap)
